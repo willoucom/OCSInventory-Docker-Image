@@ -5,6 +5,22 @@ LABEL version="2.3.1"
 LABEL description="OCS (Open Computers and Software Inventory Next Generation)"
 
 ARG APT_FLAGS="-y --no-install-recommends"
+ARG VERSION="2.3.1"
+
+ENV APACHE_RUN_USER     www-data
+ENV APACHE_RUN_GROUP    www-data
+ENV APACHE_LOG_DIR      /var/log/apache2
+ENV APACHE_PID_FILE     /var/run/apache2.pid
+ENV APACHE_RUN_DIR      /var/run/apache2f
+ENV APACHE_LOCK_DIR     /var/lock/apache2
+ENV APACHE_LOG_DIR      /var/log/apache2
+
+# default values
+ENV OCS_DBNAME          ocsweb
+ENV OCS_DBSERVER_READ   localhost
+ENV OCS_DBSERVER_WRITE  localhost
+ENV OCS_DBUSER          ocs
+ENV OCS_DBPASS          ocs
 
 VOLUME /var/lib/mysql
 
@@ -41,17 +57,19 @@ RUN apt-get update ; \
     libmodule-build-perl \
     wget \
     tar \
-    make ;\
+    make \
+    vim ;\
+    
     cpan -i XML::Entities ;\
     /usr/sbin/a2dissite 000-default ;\
     /usr/sbin/a2enmod rewrite ;\
     /usr/sbin/a2enmod ssl ;\
     /usr/sbin/a2enmod authz_user ;\
     wget https://raw.githubusercontent.com/OCSInventory-NG/OCSInventory-Server/master/binutils/docker-download.sh ;\
-    sh docker-download.sh 2.3.1
+    sh docker-download.sh ${VERSION} ;\
 
-WORKDIR /tmp/ocs/Apache
-RUN perl Makefile.PL ;\
+    cd /tmp/ocs/Apache ;\
+    perl Makefile.PL ;\
     make ;\
     make install ;\
     cp /usr/share/zoneinfo/Europe/Paris /etc/localtime ;\
@@ -60,48 +78,38 @@ RUN perl Makefile.PL ;\
     cp /tmp/ocs/etc/logrotate.d/ocsinventory-server /etc/logrotate.d/ ;\
     mkdir -p /etc/ocsinventory-server/plugins ;\
     mkdir -p /etc/ocsinventory-server/perl ;\
-    mkdir -p /usr/share/ocsinventory-reports/ocsreports
+    mkdir -p /usr/share/ocsinventory-reports/ocsreports ;\
 
-ENV APACHE_RUN_USER     www-data
-ENV APACHE_RUN_GROUP    www-data
-ENV APACHE_LOG_DIR      /var/log/apache2
-ENV APACHE_PID_FILE     /var/run/apache2.pid
-ENV APACHE_RUN_DIR      /var/run/apache2f
-ENV APACHE_LOCK_DIR     /var/lock/apache2
-ENV APACHE_LOG_DIR      /var/log/apache2
-
-
-WORKDIR /tmp/ocs
-
-COPY dbconfig.inc.php /usr/share/ocsinventory-reports/ocsreports/
-
-RUN cp -R ocsreports/* /usr/share/ocsinventory-reports/ocsreports ;\
+    cd /tmp/ocs ;\
+    cp -R ocsreports/* /usr/share/ocsinventory-reports/ocsreports ;\
     bash -c 'mkdir -p /var/lib/ocsinventory-reports/{download,ipd,logs,scripts,snmp}' ;\
     chmod -R +w /var/lib/ocsinventory-reports ;\
     chown www-data: -R /var/lib/ocsinventory-reports ;\
     cp binutils/ipdiscover-util.pl /usr/share/ocsinventory-reports/ocsreports/ipdiscover-util.pl ;\
     chown www-data: /usr/share/ocsinventory-reports/ocsreports/ipdiscover-util.pl ;\
     chmod 755 /usr/share/ocsinventory-reports/ocsreports/ipdiscover-util.pl ;\
-    chmod +w /usr/share/ocsinventory-reports/ocsreports/dbconfig.inc.php ;\
     mkdir -p /var/log/ocsinventory-server/ ;\
     chmod +w /var/log/ocsinventory-server ;\
-    chown -R www-data: /usr/share/ocsinventory-reports/
+    chown -R www-data: /usr/share/ocsinventory-reports/ ;\
 
-COPY /conf/ocsinventory-reports.conf /conf/z-ocsinventory-server.conf /etc/apache2/conf-available/
-COPY ./scripts/run.sh /root/run.sh
-
-RUN chmod +x /root/run.sh ;\
-    ln -s /etc/apache2/conf-available/ocsinventory-reports.conf /etc/apache2/conf-enabled/ocsinventory-reports.conf ;\
-    ln -s /etc/apache2/conf-available/z-ocsinventory-server.conf /etc/apache2/conf-enabled/z-ocsinventory-server.conf ;\
-    rm /usr/share/ocsinventory-reports/ocsreports/install.php ;\
     rm -rf /tmp/ocs ;\
     apt-get clean ;\
     apt-get autoclean ;\
     apt-get autoremove ;\
     rm -rf /var/lib/apt/lists/* ;\
-    rm -rf /var/cache/apt/archives/* ;
+    rm -rf /var/cache/apt/archives/*
+
+COPY dbconfig.inc.php /usr/share/ocsinventory-reports/ocsreports/
+COPY /conf/ocsinventory-reports.conf /conf/z-ocsinventory-server.conf /etc/apache2/conf-available/
+COPY /scripts/entrypoint.sh /root/entrypoint.sh
+
+RUN chmod +x /root/entrypoint.sh ;\
+    chmod +w /usr/share/ocsinventory-reports/ocsreports/dbconfig.inc.php ;\
+    ln -s /etc/apache2/conf-available/ocsinventory-reports.conf /etc/apache2/conf-enabled/ocsinventory-reports.conf ;\
+    ln -s /etc/apache2/conf-available/z-ocsinventory-server.conf /etc/apache2/conf-enabled/z-ocsinventory-server.conf ;\
+    rm /usr/share/ocsinventory-reports/ocsreports/install.php 
 
 EXPOSE 80
-EXPOSE 443
 
-CMD ["/bin/bash", "/root/run.sh"]
+ENTRYPOINT [ "/root/entrypoint.sh" ]
+CMD ["/usr/sbin/apache2ctl", "-D", "FOREGROUND"]

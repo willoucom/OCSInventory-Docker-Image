@@ -1,0 +1,31 @@
+version: '3'
+services :
+  web :
+    # image : ocsinventory/ocsinventory-docker-image:latest
+    build : .
+    container_name : ocsinventory-server
+    environment :
+      OCS_DBNAME : ocsweb
+      OCS_DBSERVER_READ : ocsinventory-db
+      OCS_DBSERVER_WRITE : ocsinventory-db
+      OCS_DBUSER : ocs
+      OCS_DBPASS : ocs
+    links :
+      - db
+    ports :
+      - 80:80
+      - 443:443
+
+  db :
+    image : mysql:5.7
+    container_name : ocsinventory-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD : mdp
+      MYSQL_USER : ocs
+      MYSQL_PASSWORD : ocs
+      MYSQL_DATABASE : ocsweb
+    volumes :
+      - ./sql/:/docker-entrypoint-initdb.d/
+    ports :
+      - 3306:3306
