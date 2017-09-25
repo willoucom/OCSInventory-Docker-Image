@@ -1,8 +1,7 @@
 version: '3'
 services :
   web :
-    # image : ocsinventory/ocsinventory-docker-image:latest
-    build : .
+    image: willoucom/ocsinventory-docker-image:2.3.1_remix
     container_name : ocsinventory-server
     environment :
       OCS_DBNAME : ocsweb
@@ -26,6 +25,6 @@ services :
       MYSQL_PASSWORD : ocs
       MYSQL_DATABASE : ocsweb
     volumes :
-      - ./sql/:/docker-entrypoint-initdb.d/
+      - ./sql/:/docker-entrypoint-initdb.d/:ro
     ports :
       - 3306:3306
